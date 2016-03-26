@@ -9,7 +9,7 @@ require('rootpath')();
 
 function execGet(req,res,next){
   var params = req.params[0].split('/');
-  console.log('params',params);
+  //console.log('params',params);
   //[0]- empty,[1]-module,[2]-object,[3]-function,[4-n] params..n
   if(params.length <4)
     res.send({code:530,status:"error",message:"Invalid parameters!"});
@@ -23,9 +23,10 @@ function execGet(req,res,next){
         inputs.push(params[i]);
     }
 
-    console.log(params[3]);
-    console.log('inputs:',inputs);
+    // console.log(params[3]);
+    // console.log('inputs:',inputs);
     func(inputs,function(result){
+        console.log('mssge');
       res.send(result);
     });
   }
@@ -33,13 +34,13 @@ function execGet(req,res,next){
 
   function execPost(req,res,next){
   var params = req.params[0].split('/');
-  console.log(params);
+  //console.log(params);
   //[0]- empty,[1]-module,[2]-object,[3]-function,[4-n] params..n
   if(params.length <4)
     res.send({code:530,status:"error",message:"Invalid parameters!"});
   else{
     try{
-        console.log(params[3]);
+        //console.log(params[3]);
       var obj = require('api/'+params[1]+'/' +params[2]);
       obj = new obj(app);
       var func =obj[params[3]];
@@ -78,7 +79,7 @@ function getGuid(req,res,next){
     var Guid = require('guid');
     _guid = Guid.create();
     req.guid = _guid;
-  console.log(_guid);
+  //console.log(_guid);
     next();
 }
 
@@ -129,7 +130,7 @@ function writeLog(level,step,req,result){
               new (winston.transports.File)({ filename: 'logs/'+fileName+ '.log' })
             ]
         });
-        console.log(log);
+       // console.log(log);
         logger.log(level, log);
 }
 
