@@ -2,14 +2,20 @@ var express = require("express");
 
 var app = express();
 var bodyParser = require('body-parser');
-var winston = require('winston');
-var useragent = require('useragent');
 app.use(bodyParser.json());
 require('rootpath')();
+var winston = require('winston');
+var useragent = require('useragent');
+var logonList =[];
+
+var CryptoJS = require('crypto-js');
+var data ={name:"admin",password:"p@ssw0rd"};
+var ciphertext = CryptoJS.Rabbit.encrypt(JSON.stringify(data), 'secret key 123');
+console.log(ciphertext.toString());
 
 function execGet(req,res,next){
   var params = req.params[0].split('/');
-  //console.log('params',params);
+  console.log('params',params);
   //[0]- empty,[1]-module,[2]-object,[3]-function,[4-n] params..n
   if(params.length <4)
     res.send({code:530,status:"error",message:"Invalid parameters!"});
@@ -23,34 +29,35 @@ function execGet(req,res,next){
         inputs.push(params[i]);
     }
 
-    // console.log(params[3]);
-    // console.log('inputs:',inputs);
+    console.log('inputs:',inputs);
     func(inputs,function(result){
-        console.log('mssge');
       res.send(result);
+      writeResLog(req,'error',err);
     });
   }
 }
 
   function execPost(req,res,next){
   var params = req.params[0].split('/');
-  //console.log(params);
+  console.log(params);
   //[0]- empty,[1]-module,[2]-object,[3]-function,[4-n] params..n
   if(params.length <4)
     res.send({code:530,status:"error",message:"Invalid parameters!"});
   else{
     try{
-        //console.log(params[3]);
       var obj = require('api/'+params[1]+'/' +params[2]);
       obj = new obj(app);
       var func =obj[params[3]];
+      var data = req.body;
+      delete data.guid;
       func(req.body,function(result){
         res.send(result);
-
+        writeResLog(req,'info',result);
       });
     }
     catch(err){
       res.send({code:500,status:"error",message:JSON.stringify(err) });
+      writeResLog(req,'error',err);
     }
   }
 }
@@ -72,111 +79,107 @@ function executeApi(req,res,next){
     }
 }
 
-// log
-
 var _guid ="";
 function getGuid(req,res,next){
-    var Guid = require('guid');
-    _guid = Guid.create();
-    req.guid = _guid;
-  //console.log(_guid);
-    next();
+	var Guid = require('guid');
+	_guid = Guid.create();
+	req.guid = _guid;
+  console.log(_guid);
+	next();
 }
 
 function getReqLog(log,req){
-    log.guid = req.guid;
-   // log.sessionID = req.sessionID;
-    log.ip =req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    /*var user =logonList.findOne({sessionID:req.sessionID});
-    if(user)
-        log.userName = user.userName;*/
-    log.url = req.params;
-    log.method = req.method;
-    var agent = useragent.parse(req.headers['user-agent']);
-    log.os = agent.os;
-    log.device = agent.device;
-    log.browser = agent.toString();
+	log.guid = req.guid;
+	log.sessionID = req.sessionID;
+	log.ip =req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+	/*var user =logonList.findOne({sessionID:req.sessionID});
+	if(user)
+		log.userName = user.userName;*/
+	log.url = req.params;
+	log.method = req.method;
+	var agent = useragent.parse(req.headers['user-agent']);
+	log.os = agent.os;
+	log.device = agent.device;
+  log.browser = agent.toString();
 
-    return log;
+	return log;
 }
 
 function getResLog(log,level,req,result){
-    log.guid = req.guid;
-    if(level=='info')
-        log.result  = result;
-    else
-        log.message = result;
+	log.guid = req.guid;
+	if(level=='info')
+		log.result  = result;
+	else
+		log.message = result;
 
-    return log;
+	return log;
 }
 
 function writeLog(level,step,req,result){
-    var log = {};
-    var now = new Date();
-    var fileName = now.toISOString().substring(0,10);
-    log.step = step;
+	var log = {};
+	var now = new Date();
+	var fileName = now.toISOString().substring(0,10);
+	log.step = step;
 
-    switch(step){
-        case "start":
-            log = getReqLog(log,req);
-        break;
-        case "end":
-            log = getResLog(log,level,req,result);
-        break;
-    }
-      var logger = new winston.Logger({
-        level: level,
-        transports: [
-              new (winston.transports.File)({ filename: 'logs/'+fileName+ '.log' })
-            ]
-        });
-       // console.log(log);
-        logger.log(level, log);
+	switch(step){
+		case "start":
+			log = getReqLog(log,req);
+		break;
+		case "end":
+			log = getResLog(log,level,req,result);
+		break;
+	}
+	  var logger = new winston.Logger({
+		level: level,
+		transports: [
+			  new (winston.transports.File)({ filename: 'logs/'+fileName+ '.log' })
+			]
+		});
+		console.log(log);
+		logger.log(level, log);
 }
 
 function writeReqLog(req,res,next){
-    writeLog('info','start',req);
-    next();
+	writeLog('info','start',req);
+	next();
 }
 
 function writeResLog(req,level,result){
-        writeLog(level,'end',req,result);
+		writeLog(level,'end',req,result);
 }
 
-app.all('*', getGuid, writeReqLog, writeResLog, executeApi);
-// app.post('/crm/contacts/add',function(req,res){
-//     var contactBiz = require('biz/contactBiz');
-//     contactBiz.add(req.body,function(result){
-//         res.send(result);
-//         delete contactBiz;
-//     });
-// });
+function checkAuthorize(req,res,next){
+  var authorize = require('security/authorize');
+  auth = new authorize(logonList);
 
-// app.get('/crm/contacts', function(req, res) {
-//     var contactBiz = require('biz/contactBiz');
-//     contactBiz.getAll(function(result) {
-//         res.send(result);
-//         delete contactBiz;
-//     })
-// });
+  if(req.params[0] == '/security/authorize/login'){
+    if(!req.body.guid){
+      auth.getAccessToken(req.body,function(result){
+        console.log(logonList);
+        res.send(result);
+      });
+    }
+  }
+  else{
+    next();
+  }
+}
 
-// app.put('/crm/contacts/update',function(req,res){
-//     var contactBiz = require('biz/contactBiz');
-//     console.log(req.body);
-//     contactBiz.update(req.body,function(result){
-//         res.send(result);
-//         delete contactBiz;
-//     });
-// });
+function checkToken(req,res,next){
+  var authorize = require('security/authorize');
+  console.log(logonList)
+  auth = new authorize(logonList);
+  auth.isAuthorized(req.body.guid,function(result){
+    if(result.code ==200){
+      next();
+    }
+    else{
+      res.send(result);
+    }
+  })
+}
 
-// app.delete('/crm/contacts/delete',function(req,res){
-//     var contactBiz = require('biz/contactBiz');
-//   console.log(req.body);
-//     contactBiz.delete(req.body,function(result){
-//         res.send(result);
-//         delete contactBiz;
-//     });
-// });
+app.all('*',checkAuthorize,checkToken,getGuid,writeReqLog,executeApi);
 
 app.listen(3000);
 console.log("My Service is listening to port 3000.");

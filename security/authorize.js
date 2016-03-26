@@ -42,6 +42,7 @@ function authorize(logonList){
     var allowedToken = JSON.parse(bytes2.toString(CryptoJS.enc.Utf8));
     var users =  _.where(allowedUserList,{"name":user.name,"password":user.password});
 
+
     if(users.length >0 && user.name == allowedToken.name && user.password == allowedToken.password){
       callback(true);
     }
