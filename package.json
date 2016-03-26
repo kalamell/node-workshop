@@ -1,0 +1,17 @@
+{
+  "name": "myservice",
+  "description": "Rest Api for my Enterprise.",
+  "author": "Apaichon Punopas <apaichon@gmail.com>",
+  "dependencies": {
+    "body-parser": ">= 1.14.2",
+    "crypto-js": ">= 3.1.5",
+    "express": ">= 4.13.3",
+    "guid": "0.0.12",
+    "oauth2-server": "latest",
+    "orientjs": ">= 2.1.0",
+    "rootpath": ">= 0.1.2",
+    "underscore": ">=1.8.3",
+    "useragent": "latest",
+    "winston": ">= 2.1.1"
+  }
+}
